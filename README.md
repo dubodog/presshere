@@ -25,7 +25,7 @@
 
 1. 克隆仓库到本地
    ```
-   git clone https://github.com/你的用户名/presshere.git
+   git clone https://github.com/dubodog/presshere.git
    cd presshere
    ```
 

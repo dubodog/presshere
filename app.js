@@ -122,7 +122,12 @@ function createVerticalButtons(baseColor, columnIndex) {
     const container = document.getElementById('buttonsContainer');
     const containerRect = container.getBoundingClientRect();
     const buttonSize = 60; // 按钮大小
-    const spacing = buttonSize * 2; // 按钮间距为两个按钮的大小
+    
+    // 修改：使用容器高度的百分比来计算按钮间距，而不是固定值
+    // 计算合适的间距百分比，确保在小屏幕上也能完全显示所有按钮
+    // 考虑到有5个按钮(-2,-1,0,1,2)，需要确保它们在容器高度内均匀分布
+    const containerHeight = containerRect.height;
+    const spacingPercent = 15; // 按钮间距为容器高度的15%
     
     // 创建垂直排列的按钮
     positions.forEach((position, index) => {
@@ -133,7 +138,8 @@ function createVerticalButtons(baseColor, columnIndex) {
             // 保持x坐标不变，只改变y坐标，确保按钮在同一列
             // 计算相对于容器的位置，而不是绝对位置
             const relativeX = (refRect.left - containerRect.left) / containerRect.width * 100;
-            const relativeY = (refRect.top - containerRect.top) / containerRect.height * 100 + position * (spacing / containerRect.height * 100);
+            // 使用百分比间距计算按钮位置
+            const relativeY = (refRect.top - containerRect.top) / containerRect.height * 100 + position * spacingPercent;
             const btn = createButton(`${relativeX}%`, `${relativeY}%`, baseColor);
             btn.style.opacity = 0;
             btn.style.transform = 'translateY(20px)';
