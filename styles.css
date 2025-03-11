@@ -1,0 +1,91 @@
+.game-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.buttons-container {
+    position: relative;
+    width: 90vw;
+    max-width: 800px;
+    height: 80vh;
+    max-height: 800px;
+}
+
+.button {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: #FFD700;
+    -webkit-background-color: #FFD700;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    -webkit-box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+    -webkit-transition: all 0.3s ease;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.button:active {
+    transform: scale(0.9);
+}
+
+.button.red {
+    background: #FF4444;
+}
+
+.button.blue {
+    background: #448AFF;
+}
+
+.button.yellow {
+    background: #FFD700;
+}
+.instruction {
+    margin-top: 30px;
+    font-size: 20px;
+    color: #333;
+    text-align: center;
+    padding: 0 20px;
+}
+
+@keyframes appear {
+    from { opacity: 0; transform: scale(0); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.button.new {
+    animation: appear 0.5s ease-out;
+}
+
+.click-counter {
+    position: absolute;
+    color: #000;
+    font-size: 24px;
+    font-weight: bold;
+    pointer-events: none;
+    animation: fadeUpAndOut 0.5s ease-out forwards;
+    transform-origin: center;
+    z-index: 1000;
+}
+
+@keyframes fadeUpAndOut {
+    0% {
+        opacity: 1;
+        transform: translate(0, 0) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(0, -20px) scale(0.8);
+    }
+}
