@@ -6,6 +6,9 @@ const buttons = [];
 let pressSound;
 let lightSound;
 
+// 存储事件处理函数的对象，用于后续移除事件监听器
+const eventHandlers = {};
+
 function initAudioContext() {
     try {
         pressSound = new Audio('./press.mp3');
@@ -77,9 +80,17 @@ function createInitialButton() {
     // 设置初始提示文字
     updateInstruction('按一下这个黄点');
     
-    btn.addEventListener('click', async function(event) {
+    // 使用命名函数作为事件处理器
+    function handleInitialButtonClick(event) {
         handleFirstClick(event);
-    });
+    }
+    
+    // 存储事件处理函数以便后续移除
+    eventHandlers[btn.id] = {
+        click: handleInitialButtonClick
+    };
+    
+    btn.addEventListener('click', handleInitialButtonClick);
 }
 
 // 通用按钮创建方法
@@ -113,6 +124,13 @@ function createVerticalButtons(baseColor, columnIndex) {
             if (baseColor === 'yellow') {
                 console.log(`移除按钮 - 位置: x=${btn.style.left}, y=${btn.style.top}`);
                 console.log(`当前步骤: ${currentStep}`);
+            }
+            // 移除事件监听器
+            if (btn.id && eventHandlers[btn.id]) {
+                for (const [eventType, handler] of Object.entries(eventHandlers[btn.id])) {
+                    btn.removeEventListener(eventType, handler);
+                }
+                delete eventHandlers[btn.id];
             }
             btn.remove();
         }
@@ -154,18 +172,19 @@ function createVerticalButtons(baseColor, columnIndex) {
 
 function createButton(x, y, color) {
     const btn = document.createElement('div');
-    btn.addEventListener('touchstart', handleTouch);
-    btn.addEventListener('mouseover', handleTouch);
-    btn.className = ['button', color].filter(Boolean).join(' ');
-    btn.clickCount = 0;
+    // 为按钮生成唯一ID，用于存储事件处理函数
+    btn.id = 'button_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
     
-    if (color === 'yellow') {
-        console.log(`创建黄色按钮 - 位置: x=${x}, y=${y}`);
-        console.log(`当前步骤: ${currentStep}`);
-        console.log(`当前黄色按钮数量: ${document.querySelectorAll('.yellow').length + 1}`);
+    // 使用命名函数作为事件处理器
+    function handleTouchEvent(e) {
+        handleTouch(e);
     }
     
-    btn.addEventListener('click', (event) => {
+    function handleMouseoverEvent(e) {
+        handleTouch(e);
+    }
+    
+    function handleClickEvent(event) {
         btn.clickCount++;
         const counter = document.createElement('div');
         counter.className = 'click-counter';
@@ -184,7 +203,28 @@ function createButton(x, y, color) {
         counter.style.top = `${(clickY / containerRect.height) * 100}%`;
         document.getElementById('buttonsContainer').appendChild(counter);
         setTimeout(() => counter.remove(), 500);
-    });
+    }
+    
+    // 存储事件处理函数以便后续移除
+    eventHandlers[btn.id] = {
+        touchstart: handleTouchEvent,
+        mouseover: handleMouseoverEvent,
+        click: handleClickEvent
+    };
+    
+    btn.addEventListener('touchstart', handleTouchEvent);
+    btn.addEventListener('mouseover', handleMouseoverEvent);
+    btn.className = ['button', color].filter(Boolean).join(' ');
+    btn.clickCount = 0;
+    
+    if (color === 'yellow') {
+        console.log(`创建黄色按钮 - 位置: x=${x}, y=${y}`);
+        console.log(`当前步骤: ${currentStep}`);
+        console.log(`当前黄色按钮数量: ${document.querySelectorAll('.yellow').length + 1}`);
+    }
+    
+    // 移除这一行，因为在上面已经存储并添加了click事件监听器
+    // btn.addEventListener('click', handleClickEvent);
     
     // 处理位置设置
     const container = document.getElementById('buttonsContainer');
@@ -249,10 +289,18 @@ function handleTouch(e) {
         // 设置中间黄色按钮的点击计数器
         let clickCount = 0;
         const centerBtn = document.querySelector('.button.yellow');
-        // 移除原有的事件监听器
-        const oldClone = centerBtn.cloneNode(true);
-        centerBtn.parentNode.replaceChild(oldClone, centerBtn);
-        oldClone.addEventListener('click', (event) => {
+        
+        // 移除原有的事件监听器，而不是替换DOM节点
+        if (centerBtn.id && eventHandlers[centerBtn.id]) {
+            for (const [eventType, handler] of Object.entries(eventHandlers[centerBtn.id])) {
+                centerBtn.removeEventListener(eventType, handler);
+            }
+            // 清空存储的事件处理函数
+            eventHandlers[centerBtn.id] = {};
+        }
+        
+        // 创建新的事件处理函数并存储
+        function handleCenterButtonClick(event) {
             playSound(pressSound);
             clickCount++;
             // 添加点击计数显示
@@ -260,8 +308,14 @@ function handleTouch(e) {
             counter.className = 'click-counter';
             counter.textContent = `+${clickCount}`;
             const containerRect = container.getBoundingClientRect();
-            let clickX = event.pageX - containerRect.left;
-            let clickY = event.pageY - containerRect.top;
+            let clickX, clickY;
+            if (event.touches && event.touches[0]) {
+                clickX = event.touches[0].pageX - containerRect.left;
+                clickY = event.touches[0].pageY - containerRect.top;
+            } else {
+                clickX = event.pageX - containerRect.left;
+                clickY = event.pageY - containerRect.top;
+            }
             counter.style.left = `${(clickX / containerRect.width) * 100}%`;
             counter.style.top = `${(clickY / containerRect.height) * 100}%`;
             container.appendChild(counter);
@@ -274,7 +328,24 @@ function handleTouch(e) {
                 currentStep = 6; // 修正为第6步状态
                 setupRedButtonCounter();
             }
-        });
+        }
+        
+        // 存储新的事件处理函数
+        var newHandlers = {};
+        if (eventHandlers[centerBtn.id]) {
+            newHandlers = eventHandlers[centerBtn.id];
+        }
+        newHandlers.click = handleCenterButtonClick;
+        if (eventHandlers[centerBtn.id] && eventHandlers[centerBtn.id].touchstart) {
+            newHandlers.touchstart = eventHandlers[centerBtn.id].touchstart;
+        }
+        if (eventHandlers[centerBtn.id] && eventHandlers[centerBtn.id].mouseover) {
+            newHandlers.mouseover = eventHandlers[centerBtn.id].mouseover;
+        }
+        eventHandlers[centerBtn.id] = newHandlers;
+        
+        // 添加新的事件监听器
+        centerBtn.addEventListener('click', handleCenterButtonClick);
     }
 }
 
@@ -337,45 +408,26 @@ function setupDeviceMotion() {
 
         if (typeof DeviceMotionEvent.requestPermission === 'function') {
             // iOS 13+ 需要检查权限
-            DeviceMotionEvent.requestPermission()
-                .then(permissionState => {
-                    console.log('设备运动权限状态:', permissionState);
-                    if (permissionState === 'granted') {
-                        setupMotionListener();
-                    } else {
-                        // 仅在未获得权限时显示授权按钮
-                        const authButton = document.createElement('button');
-                        authButton.textContent = '点击授权设备运动';
-                        authButton.style.position = 'fixed';
-                        authButton.style.top = '20px';
-                        authButton.style.left = '50%';
-                        authButton.style.transform = 'translateX(-50%)';
-                        authButton.style.padding = '10px 20px';
-                        authButton.style.backgroundColor = '#4CAF50';
-                        authButton.style.color = 'white';
-                        authButton.style.border = 'none';
-                        authButton.style.borderRadius = '5px';
-                        authButton.style.cursor = 'pointer';
-                        authButton.style.zIndex = '1000';
-                        document.body.appendChild(authButton);
-
-                        authButton.addEventListener('click', () => {
-                            DeviceMotionEvent.requestPermission()
-                                .then(newPermissionState => {
-                                    if (newPermissionState === 'granted') {
-                                        setupMotionListener();
-                                        authButton.style.display = 'none';
-                                    }
-                                })
-                                .catch(error => {
-                                    console.error('权限请求错误:', error);
-                                });
-                        });
-                    }
-                })
-                .catch(error => {
-                    console.error('权限检查错误:', error);
-                });
+            authButton.addEventListener('click', handleAuthButtonClick);
+            
+            // 创建命名函数作为事件处理器并存储
+            function handleAuthButtonClick() {
+                DeviceMotionEvent.requestPermission()
+                    .then(newPermissionState => {
+                        if (newPermissionState === 'granted') {
+                            setupMotionListener();
+                            authButton.style.display = 'none';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('权限请求错误:', error);
+                    });
+            }
+            
+            // 存储事件处理函数
+            eventHandlers[authButton.id || 'authButton'] = {
+                click: handleAuthButtonClick
+            };
         } else {
             // 其他设备直接添加监听
             setupMotionListener();
@@ -387,7 +439,9 @@ function setupDeviceMotion() {
 function setupRedButtonCounter() {
     let redClickCount = 0;
     const redButtons = document.querySelectorAll('.red');
-    const handleRedClick = (event) => {
+    
+    // 使用命名函数作为事件处理器
+    function handleRedClick(event) {
         playSound(pressSound);
         redClickCount++;
         
@@ -409,17 +463,45 @@ function setupRedButtonCounter() {
             updateInstruction('然后按五次蓝的');
             currentStep = 7; // 修正为第7步
             setupBlueButtonCounter();
+            
             // 移除所有红色按钮的点击事件监听
-            redButtons.forEach(btn => btn.removeEventListener('click', handleRedClick));
+            redButtons.forEach(btn => {
+                if (btn.id && eventHandlers[btn.id] && eventHandlers[btn.id].redClick) {
+                    btn.removeEventListener('click', eventHandlers[btn.id].redClick);
+                    // 从事件处理器对象中移除该事件
+                    delete eventHandlers[btn.id].redClick;
+                }
+            });
         }
     };
-    redButtons.forEach(btn => btn.addEventListener('click', handleRedClick));
+    
+    // 为每个红色按钮添加事件监听器并存储
+    redButtons.forEach(btn => {
+        // 存储事件处理函数
+        if (!btn.id) {
+            btn.id = 'button_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+        }
+        
+        // 存储事件处理函数
+        var newHandlers = {};
+        if (eventHandlers[btn.id]) {
+            for (var key in eventHandlers[btn.id]) {
+                newHandlers[key] = eventHandlers[btn.id][key];
+            }
+        }
+        newHandlers.redClick = handleRedClick;
+        eventHandlers[btn.id] = newHandlers;
+        
+        btn.addEventListener('click', handleRedClick);
+    });
 }
 
 function setupBlueButtonCounter() {
     let blueClickCount = 0;
     const blueButtons = document.querySelectorAll('.blue');
-    const handleBlueClick = (event) => {
+    
+    // 使用命名函数作为事件处理器
+    function handleBlueClick(event) {
         playSound(pressSound);
         blueClickCount++;
         
@@ -440,28 +522,75 @@ function setupBlueButtonCounter() {
             createVerticalButtons('blue', 0); // 使用索引0获取第一个蓝色按钮
             updateInstruction('好极啦！现在拿起来摇一摇');
             currentStep = 8; // 修正为第8步
+            
             // 移除所有蓝色按钮的点击事件监听
-            blueButtons.forEach(btn => btn.removeEventListener('click', handleBlueClick));
+            blueButtons.forEach(btn => {
+                if (btn.id && eventHandlers[btn.id] && eventHandlers[btn.id].blueClick) {
+                    btn.removeEventListener('click', eventHandlers[btn.id].blueClick);
+                    // 从事件处理器对象中移除该事件
+                    delete eventHandlers[btn.id].blueClick;
+                }
+            });
         }
     };
-    blueButtons.forEach(btn => btn.addEventListener('click', handleBlueClick));
+    
+    // 为每个蓝色按钮添加事件监听器并存储
+    blueButtons.forEach(btn => {
+        // 确保按钮有唯一ID
+        if (!btn.id) {
+            btn.id = 'button_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+        }
+        
+        // 存储事件处理函数
+        var newHandlers = {};
+        if (eventHandlers[btn.id]) {
+            for (var key in eventHandlers[btn.id]) {
+                newHandlers[key] = eventHandlers[btn.id][key];
+            }
+        }
+        newHandlers.blueClick = handleBlueClick;
+        eventHandlers[btn.id] = newHandlers;
+        
+        btn.addEventListener('click', handleBlueClick);
+    });
 }
 
 function setupYellowButtonFinal() {
     let yellowClickCount = 0;
-    document.querySelectorAll('.yellow').forEach(btn => {
-        btn.addEventListener('click', () => {
-            playSound(pressSound);
-            btn.style.transform = 'scale(0.9)';
-            yellowClickCount++;
-            
-            if(yellowClickCount === 5) {
-                playSound(lightSound);
-                document.body.style.backgroundColor = '#000';
-                updateInstruction('哎呀！天黑了？再按按看？');
-                currentStep++;
+    const yellowButtons = document.querySelectorAll('.yellow');
+    
+    // 使用命名函数作为事件处理器
+    function handleYellowFinalClick(event) {
+        playSound(pressSound);
+        this.style.transform = 'scale(0.9)';
+        yellowClickCount++;
+        
+        if(yellowClickCount === 5) {
+            playSound(lightSound);
+            document.body.style.backgroundColor = '#000';
+            updateInstruction('哎呀！天黑了？再按按看？');
+            currentStep++;
+        }
+    }
+    
+    // 为每个黄色按钮添加事件监听器并存储
+    yellowButtons.forEach(btn => {
+        // 确保按钮有唯一ID
+        if (!btn.id) {
+            btn.id = 'button_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+        }
+        
+        // 存储事件处理函数
+        var newHandlers = {};
+        if (eventHandlers[btn.id]) {
+            for (var key in eventHandlers[btn.id]) {
+                newHandlers[key] = eventHandlers[btn.id][key];
             }
-        });
+        }
+        newHandlers.yellowFinalClick = handleYellowFinalClick;
+        eventHandlers[btn.id] = newHandlers;
+        
+        btn.addEventListener('click', handleYellowFinalClick);
     });
 }
 
@@ -554,7 +683,18 @@ function applyPhysicsEffects(acceleration) {
         // 最终阶段处理
         let totalClicks = 0;
         document.querySelectorAll('.button').forEach(btn => {
-            btn.addEventListener('click', () => {
+            // 确保按钮有唯一ID
+            if (!btn.id) {
+                btn.id = 'button_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+            }
+            
+            // 移除之前的事件监听器
+            if (btn.id && eventHandlers[btn.id] && eventHandlers[btn.id].finalClick) {
+                btn.removeEventListener('click', eventHandlers[btn.id].finalClick);
+            }
+            
+            // 创建新的事件处理函数
+            function handleFinalClick() {
                 if (pressSound) playSound(pressSound);
                 if(++totalClicks === 15) {
                     if (lightSound) playSound(lightSound);
@@ -562,7 +702,20 @@ function applyPhysicsEffects(acceleration) {
                     updateInstruction('不错嘛……稍微摇一摇？');
                     currentStep++;
                 }
-            });
+            }
+            
+            // 存储事件处理函数
+            var newHandlers = {};
+            if (eventHandlers[btn.id]) {
+                for (var key in eventHandlers[btn.id]) {
+                    newHandlers[key] = eventHandlers[btn.id][key];
+                }
+            }
+            newHandlers.finalClick = handleFinalClick;
+            eventHandlers[btn.id] = newHandlers;
+            
+            // 添加新的事件监听器
+            btn.addEventListener('click', handleFinalClick);
         });
     } else if(currentStep === 13) {
         // 重新排列按钮为红黄蓝间隔
@@ -596,7 +749,18 @@ function applyPhysicsEffects(acceleration) {
         const totalYellowButtons = yellowButtons.length;
         
         yellowButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
+            // 确保按钮有唯一ID
+            if (!btn.id) {
+                btn.id = 'button_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+            }
+            
+            // 移除之前的事件监听器
+            if (btn.id && eventHandlers[btn.id] && eventHandlers[btn.id].yellowArrangeClick) {
+                btn.removeEventListener('click', eventHandlers[btn.id].yellowArrangeClick);
+            }
+            
+            // 创建新的事件处理函数
+            function handleYellowArrangeClick() {
                 if (pressSound) playSound(pressSound);
                 yellowClickCount++;
                 
@@ -616,12 +780,26 @@ function applyPhysicsEffects(acceleration) {
                     updateInstruction('太棒了！你完成了所有挑战！');
                     currentStep = 14;
                 }
-            });
+            }
+            
+            // 存储事件处理函数
+            var newHandlers = {};
+            if (eventHandlers[btn.id]) {
+                for (var key in eventHandlers[btn.id]) {
+                    newHandlers[key] = eventHandlers[btn.id][key];
+                }
+            }
+            newHandlers.yellowArrangeClick = handleYellowArrangeClick;
+            eventHandlers[btn.id] = newHandlers;
+            
+            // 添加新的事件监听器
+            btn.addEventListener('click', handleYellowArrangeClick);
         });
         
         updateInstruction('嗯，漂亮！使劲儿按所有的黄点，看看会发生什么……');
         currentStep = 14;
     } else {
+        // 原有的物理效果代码保持不变
         const container = document.getElementById('buttonsContainer');
         const containerRect = container.getBoundingClientRect();
         const marginPercent = 5; // 边距改为容器宽度的5%
